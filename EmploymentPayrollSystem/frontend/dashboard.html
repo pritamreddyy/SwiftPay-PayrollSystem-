@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employment Payroll System - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h2>Employment Payroll System</h2>
+        </div>
+        <div class="nav-user">
+            <span id="welcomeUser">Welcome, Admin</span>
+            <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard-header">
+            <h1>Admin Dashboard</h1>
+            <p>Manage employees and payroll from this central dashboard</p>
+        </div>
+
+        <div class="dashboard-stats">
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-info">
+                    <h3 id="totalEmployees">0</h3>
+                    <p>Total Employees</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">💰</div>
+                <div class="stat-info">
+                    <h3 id="totalPayrolls">0</h3>
+                    <p>Payroll Records</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-info">
+                    <h3 id="avgSalary">$0</h3>
+                    <p>Average Salary</p>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">📈</div>
+                <div class="stat-info">
+                    <h3 id="totalPayout">$0</h3>
+                    <p>Total Payout</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-actions">
+            <div class="action-card">
+                <div class="action-icon">👨‍💼</div>
+                <h3>Employee Management</h3>
+                <p>Add, update, delete, and view employee information</p>
+                <a href="employees.html" class="btn btn-primary">Manage Employees</a>
+            </div>
+            
+            <div class="action-card">
+                <div class="action-icon">💵</div>
+                <h3>Payroll Management</h3>
+                <p>Calculate salaries, manage bonuses and deductions</p>
+                <a href="payroll.html" class="btn btn-primary">Manage Payroll</a>
+            </div>
+        </div>
+
+        <div class="recent-activity">
+            <h2>Recent Activity</h2>
+            <div class="activity-list">
+                <div class="activity-item">
+                    <div class="activity-icon">👤</div>
+                    <div class="activity-info">
+                        <h4>Employee Management</h4>
+                        <p>Click "Manage Employees" to view, add, edit, or remove employees</p>
+                    </div>
+                </div>
+                
+                <div class="activity-item">
+                    <div class="activity-icon">💰</div>
+                    <div class="activity-info">
+                        <h4>Payroll Processing</h4>
+                        <p>Click "Manage Payroll" to calculate salaries and view payment records</p>
+                    </div>
+                </div>
+                
+                <div class="activity-item">
+                    <div class="activity-icon">📋</div>
+                    <div class="activity-info">
+                        <h4>System Status</h4>
+                        <p>All systems operational. Database connected successfully.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Check authentication
+        checkAuthentication();
+
+        // Set welcome message
+        const username = localStorage.getItem('username') || 'Admin';
+        document.getElementById('welcomeUser').textContent = `Welcome, ${username}`;
+
+        // Logout functionality
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            logout();
+        });
+
+        // Load dashboard statistics
+        loadDashboardStats();
+
+        async function loadDashboardStats() {
+            try {
+                // Load employees
+                const employeesResponse = await fetch('http://localhost:8080/api/employees');
+                const employees = await employeesResponse.json();
+                document.getElementById('totalEmployees').textContent = employees.length;
+
+                // Load payrolls
+                const payrollResponse = await fetch('http://localhost:8080/api/payroll');
+                const payrolls = await payrollResponse.json();
+                document.getElementById('totalPayrolls').textContent = payrolls.length;
+
+                // Calculate average salary from employees
+                if (employees.length > 0) {
+                    const totalBasicSalary = employees.reduce((sum, emp) => sum + emp.basic_salary, 0);
+                    const avgSalary = totalBasicSalary / employees.length;
+                    document.getElementById('avgSalary').textContent = `$${avgSalary.toFixed(2)}`;
+                }
+
+                // Calculate total payout from payrolls
+                if (payrolls.length > 0) {
+                    const totalPayout = payrolls.reduce((sum, payroll) => sum + payroll.net_salary, 0);
+                    document.getElementById('totalPayout').textContent = `$${totalPayout.toFixed(2)}`;
+                }
+
+            } catch (error) {
+                console.error('Error loading dashboard stats:', error);
+            }
+        }
+
+        // Auto-refresh stats every 30 seconds
+        setInterval(loadDashboardStats, 30000);
+    </script>
+</body>
+</html>

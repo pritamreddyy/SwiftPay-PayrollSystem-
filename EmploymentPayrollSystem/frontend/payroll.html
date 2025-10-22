@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payroll Management - Employment Payroll System</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h2>Employment Payroll System</h2>
+        </div>
+        <div class="nav-links">
+            <a href="dashboard.html" class="nav-link">Dashboard</a>
+            <a href="employees.html" class="nav-link">Employees</a>
+            <a href="payroll.html" class="nav-link active">Payroll</a>
+        </div>
+        <div class="nav-user">
+            <span id="welcomeUser">Welcome, Admin</span>
+            <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Payroll Management</h1>
+            <button id="calculatePayrollBtn" class="btn btn-primary">Calculate New Payroll</button>
+        </div>
+
+        <div class="payroll-summary">
+            <div class="summary-card">
+                <h3>Total Payroll Records</h3>
+                <p id="totalRecords">0</p>
+            </div>
+            <div class="summary-card">
+                <h3>Total Amount Paid</h3>
+                <p id="totalPaid">$0.00</p>
+            </div>
+            <div class="summary-card">
+                <h3>Average Net Salary</h3>
+                <p id="averageSalary">$0.00</p>
+            </div>
+        </div>
+
+        <div class="payroll-section">
+            <h2>Payroll Records</h2>
+            <div class="table-container">
+                <table id="payrollTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Payroll ID</th>
+                            <th>Employee ID</th>
+                            <th>Employee Name</th>
+                            <th>Basic Salary</th>
+                            <th>Bonuses</th>
+                            <th>Deductions</th>
+                            <th>Net Salary</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payrollTableBody">
+                        <!-- Payroll data will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="loadingSpinner" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading payroll data...</p>
+        </div>
+
+        <div id="noPayroll" class="no-data" style="display: none;">
+            <h3>No Payroll Records Found</h3>
+            <p>Click "Calculate New Payroll" to create salary records for employees.</p>
+        </div>
+    </div>
+
+    <!-- Calculate Payroll Modal -->
+    <div id="payrollModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Calculate Employee Payroll</h2>
+                <span class="close" id="closeModal">&times;</span>
+            </div>
+            <form id="payrollForm">
+                <div class="form-group">
+                    <label for="employeeSelect">Select Employee:</label>
+                    <select id="employeeSelect" name="employee_id" required>
+                        <option value="">Choose an employee...</option>
+                        <!-- Employee options will be loaded here -->
+                    </select>
+                </div>
+                
+                <div class="employee-info" id="employeeInfo" style="display: none;">
+                    <div class="info-card">
+                        <h4>Employee Details:</h4>
+                        <p><strong>Name:</strong> <span id="selectedEmployeeName">-</span></p>
+                        <p><strong>Department:</strong> <span id="selectedEmployeeDept">-</span></p>
+                        <p><strong>Basic Salary:</strong> <span id="selectedEmployeeSalary">$0.00</span></p>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="bonuses">Bonuses ($):</label>
+                    <input type="number" id="bonuses" name="bonuses" min="0" step="0.01" value="0" required>
+                    <small>Enter any performance bonuses, overtime pay, or additional compensation</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="deductions">Deductions ($):</label>
+                    <input type="number" id="deductions" name="deductions" min="0" step="0.01" value="0" required>
+                    <small>Enter tax deductions, insurance, or other withholdings</small>
+                </div>
+                
+                <div class="calculation-preview" id="calculationPreview" style="display: none;">
+                    <div class="calculation-card">
+                        <h4>Salary Calculation:</h4>
+                        <div class="calculation-row">
+                            <span>Basic Salary:</span>
+                            <span id="previewBasicSalary">$0.00</span>
+                        </div>
+                        <div class="calculation-row positive">
+                            <span>+ Bonuses:</span>
+                            <span id="previewBonuses">$0.00</span>
+                        </div>
+                        <div class="calculation-row negative">
+                            <span>- Deductions:</span>
+                            <span id="previewDeductions">$0.00</span>
+                        </div>
+                        <div class="calculation-row total">
+                            <span><strong>Net Salary:</strong></span>
+                            <span id="previewNetSalary"><strong>$0.00</strong></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Calculate & Save</button>
+                    <button type="button" id="cancelBtn" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div id="messageContainer" class="message-container" style="display: none;">
+        <div id="messageContent" class="message"></div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Check authentication
+        checkAuthentication();
+
+        // Set welcome message
+        const username = localStorage.getItem('username') || 'Admin';
+        document.getElementById('welcomeUser').textContent = `Welcome, ${username}`;
+
+        // Global variables
+        let employees = [];
+        let payrolls = [];
+        let selectedEmployee = null;
+
+        // DOM elements
+        const calculatePayrollBtn = document.getElementById('calculatePayrollBtn');
+        const payrollModal = document.getElementById('payrollModal');
+        const payrollForm = document.getElementById('payrollForm');
+        const employeeSelect = document.getElementById('employeeSelect');
+        const bonusesInput = document.getElementById('bonuses');
+        const deductionsInput = document.getElementById('deductions');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        // Event listeners
+        calculatePayrollBtn.addEventListener('click', openPayrollModal);
+        document.getElementById('closeModal').addEventListener('click', closePayrollModal);
+        document.getElementById('cancelBtn').addEventListener('click', closePayrollModal);
+        payrollForm.addEventListener('submit', calculatePayroll);
+        employeeSelect.addEventListener('change', onEmployeeSelect);
+        bonusesInput.addEventListener('input', updateCalculationPreview);
+        deductionsInput.addEventListener('input', updateCalculationPreview);
+        logoutBtn.addEventListener('click', logout);
+
+        // Load data on page load
+        loadEmployees();
+        loadPayrolls();
+
+        async function loadEmployees() {
+            try {
+                const response = await fetch('http://localhost:8080/api/employees');
+                employees = await response.json();
+                populateEmployeeSelect();
+            } catch (error) {
+                showMessage('Error loading employees: ' + error.message, 'error');
+                console.error('Error:', error);
+            }
+        }
+
+        async function loadPayrolls() {
+            showLoading(true);
+            try {
+                const response = await fetch('http://localhost:8080/api/payroll');
+                payrolls = await response.json();
+                displayPayrolls();
+                updateSummary();
+            } catch (error) {
+                showMessage('Error loading payroll data: ' + error.message, 'error');
+                console.error('Error:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function populateEmployeeSelect() {
+            const select = document.getElementById('employeeSelect');
+            select.innerHTML = '<option value="">Choose an employee...</option>';
+            
+            employees.forEach(employee => {
+                const option = document.createElement('option');
+                option.value = employee.id;
+                option.textContent = `${employee.name} (${employee.department})`;
+                option.dataset.name = employee.name;
+                option.dataset.department = employee.department;
+                option.dataset.salary = employee.basic_salary;
+                select.appendChild(option);
+            });
+        }
+
+        function displayPayrolls() {
+            const tbody = document.getElementById('payrollTableBody');
+            const noPayrollDiv = document.getElementById('noPayroll');
+            
+            if (payrolls.length === 0) {
+                tbody.innerHTML = '';
+                noPayrollDiv.style.display = 'block';
+                return;
+            }
+            
+            noPayrollDiv.style.display = 'none';
+            tbody.innerHTML = payrolls.map(payroll => {
+                const employee = employees.find(emp => emp.id === payroll.employee_id);
+                const employeeName = employee ? employee.name : 'Unknown Employee';
+                const basicSalary = employee ? employee.basic_salary : 0;
+                
+                return `
+                    <tr>
+                        <td>${payroll.id}</td>
+                        <td>${payroll.employee_id}</td>
+                        <td>${employeeName}</td>
+                        <td>$${basicSalary.toFixed(2)}</td>
+                        <td class="positive">$${payroll.bonuses.toFixed(2)}</td>
+                        <td class="negative">$${payroll.deductions.toFixed(2)}</td>
+                        <td class="total"><strong>$${payroll.net_salary.toFixed(2)}</strong></td>
+                        <td>${new Date(payroll.created_at || Date.now()).toLocaleDateString()}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateSummary() {
+            const totalRecords = payrolls.length;
+            const totalPaid = payrolls.reduce((sum, payroll) => sum + payroll.net_salary, 0);
+            const averageSalary = totalRecords > 0 ? totalPaid / totalRecords : 0;
+
+            document.getElementById('totalRecords').textContent = totalRecords;
+            document.getElementById('totalPaid').textContent = `$${totalPaid.toFixed(2)}`;
+            document.getElementById('averageSalary').textContent = `$${averageSalary.toFixed(2)}`;
+        }
+
+        function openPayrollModal() {
+            if (employees.length === 0) {
+                showMessage('No employees found. Please add employees first.', 'warning');
+                return;
+            }
+            payrollModal.style.display = 'flex';
+        }
+
+        function closePayrollModal() {
+            payrollModal.style.display = 'none';
+            payrollForm.reset();
+            selectedEmployee = null;
+            document.getElementById('employeeInfo').style.display = 'none';
+            document.getElementById('calculationPreview').style.display = 'none';
+        }
+
+        function onEmployeeSelect() {
+            const selectedOption = employeeSelect.options[employeeSelect.selectedIndex];
+            
+            if (selectedOption.value) {
+                selectedEmployee = {
+                    id: selectedOption.value,
+                    name: selectedOption.dataset.name,
+                    department: selectedOption.dataset.department,
+                    salary: parseFloat(selectedOption.dataset.salary)
+                };
+
+                document.getElementById('selectedEmployeeName').textContent = selectedEmployee.name;
+                document.getElementById('selectedEmployeeDept').textContent = selectedEmployee.department;
+                document.getElementById('selectedEmployeeSalary').textContent = `$${selectedEmployee.salary.toFixed(2)}`;
+                document.getElementById('employeeInfo').style.display = 'block';
+                
+                updateCalculationPreview();
+            } else {
+                selectedEmployee = null;
+                document.getElementById('employeeInfo').style.display = 'none';
+                document.getElementById('calculationPreview').style.display = 'none';
+            }
+        }
+
+        function updateCalculationPreview() {
+            if (!selectedEmployee) return;
+
+            const bonuses = parseFloat(bonusesInput.value) || 0;
+            const deductions = parseFloat(deductionsInput.value) || 0;
+            const basicSalary = selectedEmployee.salary;
+            const netSalary = basicSalary + bonuses - deductions;
+
+            document.getElementById('previewBasicSalary').textContent = `$${basicSalary.toFixed(2)}`;
+            document.getElementById('previewBonuses').textContent = `$${bonuses.toFixed(2)}`;
+            document.getElementById('previewDeductions').textContent = `$${deductions.toFixed(2)}`;
+            document.getElementById('previewNetSalary').innerHTML = `<strong>$${netSalary.toFixed(2)}</strong>`;
+            
+            document.getElementById('calculationPreview').style.display = 'block';
+        }
+
+        async function calculatePayroll(e) {
+            e.preventDefault();
+            
+            if (!selectedEmployee) {
+                showMessage('Please select an employee first.', 'warning');
+                return;
+            }
+
+            const formData = new FormData(payrollForm);
+            const payrollData = new URLSearchParams();
+            for (let [key, value] of formData.entries()) {
+                payrollData.append(key, value);
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/payroll/calculate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: payrollData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                    closePayrollModal();
+                    loadPayrolls();
+                } else {
+                    showMessage(result.message, 'error');
+                }
+            } catch (error) {
+                showMessage('Error calculating payroll: ' + error.message, 'error');
+                console.error('Error:', error);
+            }
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+        }
+
+        function showMessage(message, type = 'info') {
+            const container = document.getElementById('messageContainer');
+            const content = document.getElementById('messageContent');
+            
+            content.textContent = message;
+            content.className = `message ${type}`;
+            container.style.display = 'block';
+            
+            setTimeout(() => {
+                container.style.display = 'none';
+            }, 5000);
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(e) {
+            if (e.target === payrollModal) {
+                closePayrollModal();
+            }
+        });
+
+        // Auto-refresh payroll data every 60 seconds
+        setInterval(loadPayrolls, 60000);
+    </script>
+</body>
+</html>
